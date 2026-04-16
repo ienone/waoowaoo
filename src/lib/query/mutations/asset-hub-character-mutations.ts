@@ -6,6 +6,7 @@ import {
 } from '../task-target-overlay'
 import { queryKeys } from '../keys'
 import type { GlobalCharacter } from '../hooks/useGlobalAssets'
+import type { AssetSummary } from '@/lib/assets/contracts'
 import {
   requestJsonWithError,
   requestVoidWithError,
@@ -20,6 +21,10 @@ interface SelectCharacterImageContext {
     queryKey: readonly unknown[]
     data: GlobalCharacter[] | undefined
   }>
+  previousUnifiedQueries: Array<{
+    queryKey: readonly unknown[]
+    data: AssetSummary[] | undefined
+  }>
   targetKey: string
   requestId: number
 }
@@ -28,6 +33,10 @@ interface DeleteCharacterContext {
   previousQueries: Array<{
     queryKey: readonly unknown[]
     data: GlobalCharacter[] | undefined
+  }>
+  previousUnifiedQueries: Array<{
+    queryKey: readonly unknown[]
+    data: AssetSummary[] | undefined
   }>
 }
 
@@ -67,9 +76,56 @@ function captureCharacterQuerySnapshots(queryClient: ReturnType<typeof useQueryC
     .map(([queryKey, data]) => ({ queryKey, data }))
 }
 
+function captureUnifiedQuerySnapshots(queryClient: ReturnType<typeof useQueryClient>) {
+  return queryClient
+    .getQueriesData<AssetSummary[]>({
+      queryKey: queryKeys.assets.all('global'),
+      exact: false,
+    })
+    .map(([queryKey, data]) => ({ queryKey, data }))
+}
+
+function applyUnifiedCharacterSelection(
+  assets: AssetSummary[] | undefined,
+  characterId: string,
+  variantIndex: number,
+  renderIndex: number | null,
+): AssetSummary[] | undefined {
+  if (!assets) return assets
+  return assets.map((asset) => {
+    if (asset.id !== characterId || asset.kind !== 'character') return asset
+    return {
+      ...asset,
+      variants: asset.variants.map((variant) => {
+        if (variant.index !== variantIndex) return variant
+        return {
+          ...variant,
+          selectionState: {
+            ...variant.selectionState,
+            selectedRenderIndex: renderIndex,
+          },
+          renders: variant.renders.map((render, idx) => ({
+            ...render,
+            isSelected: renderIndex !== null && idx === renderIndex,
+          })),
+        }
+      }),
+    }
+  })
+}
+
 function restoreCharacterQuerySnapshots(
   queryClient: ReturnType<typeof useQueryClient>,
   snapshots: Array<{ queryKey: readonly unknown[]; data: GlobalCharacter[] | undefined }>,
+) {
+  snapshots.forEach((snapshot) => {
+    queryClient.setQueryData(snapshot.queryKey, snapshot.data)
+  })
+}
+
+function restoreUnifiedQuerySnapshots(
+  queryClient: ReturnType<typeof useQueryClient>,
+  snapshots: Array<{ queryKey: readonly unknown[]; data: AssetSummary[] | undefined }>,
 ) {
   snapshots.forEach((snapshot) => {
     queryClient.setQueryData(snapshot.queryKey, snapshot.data)
@@ -207,11 +263,21 @@ export function useSelectCharacterImage() {
       const requestId = (latestRequestIdByTargetRef.current[targetKey] ?? 0) + 1
       latestRequestIdByTargetRef.current[targetKey] = requestId
 
+      // Skip optimistic update for confirm — backend reshapes the data
+      if (variables.confirm) {
+        return { previousQueries: [], previousUnifiedQueries: [], targetKey, requestId }
+      }
+
       await queryClient.cancelQueries({
         queryKey: queryKeys.globalAssets.characters(),
         exact: false,
       })
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.assets.all('global'),
+        exact: false,
+      })
       const previousQueries = captureCharacterQuerySnapshots(queryClient)
+      const previousUnifiedQueries = captureUnifiedQuerySnapshots(queryClient)
 
       queryClient.setQueriesData<GlobalCharacter[] | undefined>(
         {
@@ -226,8 +292,22 @@ export function useSelectCharacterImage() {
         ),
       )
 
+      queryClient.setQueriesData<AssetSummary[] | undefined>(
+        {
+          queryKey: queryKeys.assets.all('global'),
+          exact: false,
+        },
+        (previous) => applyUnifiedCharacterSelection(
+          previous,
+          variables.characterId,
+          variables.appearanceIndex,
+          variables.imageIndex,
+        ),
+      )
+
       return {
         previousQueries,
+        previousUnifiedQueries,
         targetKey,
         requestId,
       }
@@ -237,10 +317,11 @@ export function useSelectCharacterImage() {
       const latestRequestId = latestRequestIdByTargetRef.current[context.targetKey]
       if (latestRequestId !== context.requestId) return
       restoreCharacterQuerySnapshots(queryClient, context.previousQueries)
+      restoreUnifiedQuerySnapshots(queryClient, context.previousUnifiedQueries)
     },
-    onSettled: (_data, _error, variables) => {
+    onSettled: async (_data, _error, variables) => {
       if (variables.confirm) {
-        void invalidateCharacters()
+        await invalidateCharacters()
       }
     },
   })
@@ -320,7 +401,12 @@ export function useDeleteCharacter() {
         queryKey: queryKeys.globalAssets.characters(),
         exact: false,
       })
+      await queryClient.cancelQueries({
+        queryKey: queryKeys.assets.all('global'),
+        exact: false,
+      })
       const previousQueries = captureCharacterQuerySnapshots(queryClient)
+      const previousUnifiedQueries = captureUnifiedQuerySnapshots(queryClient)
 
       queryClient.setQueriesData<GlobalCharacter[] | undefined>(
         {
@@ -330,11 +416,20 @@ export function useDeleteCharacter() {
         (previous) => previous?.filter((character) => character.id !== characterId),
       )
 
-      return { previousQueries }
+      queryClient.setQueriesData<AssetSummary[] | undefined>(
+        {
+          queryKey: queryKeys.assets.all('global'),
+          exact: false,
+        },
+        (previous) => previous?.filter((asset) => asset.id !== characterId),
+      )
+
+      return { previousQueries, previousUnifiedQueries }
     },
     onError: (_error, _characterId, context) => {
       if (!context) return
       restoreCharacterQuerySnapshots(queryClient, context.previousQueries)
+      restoreUnifiedQuerySnapshots(queryClient, context.previousUnifiedQueries)
     },
     onSettled: invalidateCharacters,
   })
