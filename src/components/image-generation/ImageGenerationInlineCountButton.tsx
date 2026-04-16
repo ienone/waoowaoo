@@ -94,7 +94,7 @@ export default function ImageGenerationInlineCountButton({
             onChange={(event) => onValueChange(Number(event.target.value))}
             aria-label={ariaLabel}
             disabled={isSelectDisabled}
-            className={`${selectClassName} ${selectStateClassName}`.trim()}
+            className={`${selectClassName || 'appearance-none bg-transparent border-0 pl-0 pr-3 text-sm font-semibold text-current outline-none leading-none'} ${selectStateClassName}`.trim()}
           >
             {options.map((option) => (
               <option key={option} value={option} className="text-black">
@@ -143,7 +143,7 @@ export default function ImageGenerationInlineCountButton({
           onChange={(event) => onValueChange(Number(event.target.value))}
           aria-label={ariaLabel}
           disabled={isSelectDisabled}
-          className={`${selectClassName} ${selectStateClassName}`.trim()}
+          className={`${selectClassName || 'appearance-none bg-transparent border-0 pl-0 pr-3 text-sm font-semibold text-current outline-none leading-none'} ${selectStateClassName}`.trim()}
         >
           {options.map((option) => (
             <option key={option} value={option} className="text-black">
