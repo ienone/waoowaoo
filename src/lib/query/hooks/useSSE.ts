@@ -44,6 +44,8 @@ export function useSSE({ projectId, episodeId, enabled = true, onEvent }: UseSSE
 
     const invalidateByTarget = (targetType: string | null, resolvedEpisodeId: string | null) => {
       if (isGlobalAssetProject) {
+        // Always invalidate the unified assets query used by useAssets({ scope: 'global' })
+        queryClient.invalidateQueries({ queryKey: queryKeys.assets.all('global') })
         if (targetType?.startsWith('GlobalCharacter')) {
           queryClient.invalidateQueries({ queryKey: queryKeys.globalAssets.characters() })
           return
