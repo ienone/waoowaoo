@@ -123,7 +123,7 @@ export default function CharacterProfileDialog({
                         <select
                             value={formData.role_level}
                             onChange={(e) => setFormData({ ...formData, role_level: e.target.value as RoleLevel })}
-                            className="w-full px-3 py-2 border border-[var(--glass-stroke-strong)] rounded-lg focus:ring-2 focus:ring-[var(--glass-tone-info-fg)] focus:border-[var(--glass-stroke-focus)]"
+                            className="glass-select-base px-3 py-2 text-sm"
                         >
                             {ROLE_LEVELS.map((level) => (
                                 <option key={level} value={level}>
@@ -179,7 +179,7 @@ export default function CharacterProfileDialog({
                         <select
                             value={formData.costume_tier}
                             onChange={(e) => setFormData({ ...formData, costume_tier: Number(e.target.value) as CostumeTier })}
-                            className="w-full px-3 py-2 border border-[var(--glass-stroke-strong)] rounded-lg focus:ring-2 focus:ring-[var(--glass-tone-info-fg)] focus:border-[var(--glass-stroke-focus)]"
+                            className="glass-select-base px-3 py-2 text-sm"
                         >
                             {COSTUME_TIERS.map((tier) => (
                                 <option key={tier} value={tier}>
