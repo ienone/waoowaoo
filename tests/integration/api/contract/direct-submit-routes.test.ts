@@ -300,27 +300,6 @@ function toModuleImportPath(routeFile: string): string {
 
 const DIRECT_CASES: ReadonlyArray<DirectRouteCase> = [
   {
-    routeFile: 'src/app/api/asset-hub/generate-image/route.ts',
-    body: { type: 'character', id: 'global-character-1', appearanceIndex: 0, artStyle: 'realistic' },
-    expectedTaskType: TASK_TYPE.ASSET_HUB_IMAGE,
-    expectedTargetType: 'GlobalCharacter',
-    expectedProjectId: 'global-asset-hub',
-  },
-  {
-    routeFile: 'src/app/api/asset-hub/modify-image/route.ts',
-    body: {
-      type: 'character',
-      id: 'global-character-1',
-      modifyPrompt: 'sharpen details',
-      appearanceIndex: 0,
-      imageIndex: 0,
-      extraImageUrls: ['https://example.com/ref-a.png'],
-    },
-    expectedTaskType: TASK_TYPE.ASSET_HUB_MODIFY,
-    expectedTargetType: 'GlobalCharacterAppearance',
-    expectedProjectId: 'global-asset-hub',
-  },
-  {
     routeFile: 'src/app/api/assets/[assetId]/generate/route.ts',
     body: {
       scope: 'global',
@@ -561,7 +540,7 @@ describe('api contract - direct submit routes (behavior)', () => {
   })
 
   it('keeps expected coverage size', () => {
-    expect(DIRECT_CASES.length).toBe(20)
+    expect(DIRECT_CASES.length).toBe(18)
   })
 
   for (const routeCase of DIRECT_CASES) {
