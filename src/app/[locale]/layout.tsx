@@ -52,8 +52,11 @@ export default async function LocaleLayout({
     const messages = await getMessages();
 
     return (
-        <html lang={locale}>
-            <head>
+        <html lang={locale} suppressHydrationWarning>
+            <body
+                className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
+                suppressHydrationWarning
+            >
                 {process.env.NODE_ENV === "development" && (
                     <Script
                         src="//unpkg.com/react-grab/dist/index.global.js"
@@ -61,16 +64,11 @@ export default async function LocaleLayout({
                         strategy="beforeInteractive"
                     />
                 )}
-            </head>
-            <body
-                className={`${GeistSans.variable} ${GeistMono.variable} antialiased`}
-            >
                 <NextIntlClientProvider messages={messages}>
                     <Providers>
                         {children}
                     </Providers>
                 </NextIntlClientProvider>
-
             </body>
         </html>
     );
