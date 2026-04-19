@@ -526,6 +526,6 @@ export function AssistantChatModal({
     </div>
   )
 
-  if (typeof document === 'undefined') return modalContent
+  if (typeof window === 'undefined') return modalContent
   return createPortal(modalContent, document.body)
 }

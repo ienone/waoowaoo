@@ -19,7 +19,7 @@ export function buildAssistantToolErrorResult(params: {
   fallbackCode?: string
 }): AssistantToolResult {
   const message = readErrorMessage(params.error) || params.fallbackMessage
-  const code = readTrimmedString(params.fallbackCode) || (message ? message : DEFAULT_TOOL_ERROR_CODE)
+  const code = readTrimmedString(params.fallbackCode) || message || DEFAULT_TOOL_ERROR_CODE
   return {
     status: 'error',
     code,
