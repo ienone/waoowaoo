@@ -1,8 +1,10 @@
+import { NextRequest } from 'next/server'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { buildMockRequest } from '../../../helpers/request'
 import {
   installAuthMocks,
   mockAuthenticated,
+  mockUnauthenticated,
   resetAuthMockState,
 } from '../../../helpers/auth'
 
@@ -85,6 +87,49 @@ describe('api specific - user assistant chat', () => {
 
     const res = await route.POST(req, routeContext)
     expect(res.status).toBe(400)
+    expect(createAssistantChatResponseMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects unauthenticated requests', async () => {
+    installAuthMocks()
+    mockUnauthenticated()
+    const route = await import('@/app/api/user/assistant/chat/route')
+
+    const req = buildMockRequest({
+      path: '/api/user/assistant/chat',
+      method: 'POST',
+      body: {
+        assistantId: 'api-config-template',
+        messages: [],
+      },
+    })
+
+    const res = await route.POST(req, routeContext)
+    expect(res.status).toBe(401)
+    expect(createAssistantChatResponseMock).not.toHaveBeenCalled()
+  })
+
+  it('rejects invalid JSON body', async () => {
+    installAuthMocks()
+    mockAuthenticated('user-1')
+    const route = await import('@/app/api/user/assistant/chat/route')
+
+    const req = new NextRequest('http://localhost:3000/api/user/assistant/chat', {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+      },
+      body: '{invalid json',
+    })
+
+    const res = await route.POST(req, routeContext)
+    expect(res.status).toBe(400)
+    const payload = await res.json() as {
+      code?: string
+      error?: { details?: { code?: string } }
+    }
+    expect(payload.code).toBe('INVALID_PARAMS')
+    expect(payload.error?.details?.code).toBe('BODY_PARSE_FAILED')
     expect(createAssistantChatResponseMock).not.toHaveBeenCalled()
   })
 

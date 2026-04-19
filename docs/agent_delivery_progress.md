@@ -94,6 +94,12 @@
 - 测试覆盖点：输入校验、确认 gate、错误结构化返回
 - 命令与结果：未重新运行（依赖安装失败导致 typecheck/test 无法执行）
 
+### tests(agent-route)
+- 状态：done
+- 涉及文件：tests/integration/api/specific/user-assistant-chat-api-config.test.ts
+- 测试覆盖点：鉴权、body 解析、错误映射
+- 命令与结果：未重新运行（依赖安装失败导致 typecheck/test 无法执行）
+
 ### docs(agent)
 - 状态：done
 - 涉及文件：docs/ai-assistant-domain-architecture-goals.md, docs/testing.md, docs/agent_handoff_report.md, docs/agent_task.md, docs/agent_design_analysis.md, docs/agent_design.md
