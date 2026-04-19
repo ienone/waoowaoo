@@ -10,6 +10,8 @@
 2) 多模型一次配置：saveModelTemplates（优先批量）
 3) compatMediaTemplate 必须是 JSON 对象，不能是 JSON 字符串
 4) 保存前先自检字段名，严禁使用 submit/query 这类旧字段
+5) 必须显式带上 confirmation.confirmed=true；仅在用户明确同意保存时调用
+6) 如有预算授权信息，写入 confirmation.budget.id；默认不猜测
 
 模板结构必须是：
 {

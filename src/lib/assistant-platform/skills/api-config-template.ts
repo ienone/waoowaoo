@@ -4,20 +4,31 @@ import { getProviderKey } from '@/lib/api-config'
 import type { OpenAICompatMediaTemplate } from '@/lib/openai-compat-media-template'
 import { saveModelTemplateConfiguration } from '@/lib/user-api/model-template/save'
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
-import type { AssistantRuntimeContext, AssistantSkillDefinition, AssistantToolResult } from '../types'
+import type {
+  AssistantRuntimeContext,
+  AssistantSkillDefinition,
+  AssistantToolConfirmation,
+  AssistantToolResult,
+} from '../types'
 import { AssistantPlatformError } from '../errors'
+import { readAssistantToolConfirmation } from '../confirmation'
 import { buildAssistantToolErrorResult } from '../tool-errors'
 import { renderAssistantSystemPrompt } from '../system-prompts'
 
-interface SaveModelTemplateToolInput {
+interface SaveModelTemplateItemInput {
   modelId: string
   name: string
   type: 'image' | 'video'
   compatMediaTemplate: unknown
 }
 
+interface SaveModelTemplateToolInput extends SaveModelTemplateItemInput {
+  confirmation: AssistantToolConfirmation
+}
+
 interface SaveModelTemplatesToolInput {
-  models: SaveModelTemplateToolInput[]
+  models: SaveModelTemplateItemInput[]
+  confirmation: AssistantToolConfirmation
 }
 
 const saveModelTemplateItemSchema: JSONSchema7 = {
@@ -32,7 +43,32 @@ const saveModelTemplateItemSchema: JSONSchema7 = {
   required: ['modelId', 'name', 'type', 'compatMediaTemplate'],
 }
 
-const saveModelTemplateInputSchema = jsonSchema<SaveModelTemplateToolInput>(saveModelTemplateItemSchema)
+const toolConfirmationSchema: JSONSchema7 = {
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    confirmed: { type: 'boolean' },
+    budget: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        id: { type: 'string', minLength: 1 },
+      },
+      required: ['id'],
+    },
+  },
+  required: ['confirmed'],
+}
+
+const saveModelTemplateInputSchema = jsonSchema<SaveModelTemplateToolInput>({
+  type: 'object',
+  additionalProperties: false,
+  properties: {
+    ...saveModelTemplateItemSchema.properties,
+    confirmation: toolConfirmationSchema,
+  },
+  required: [...(saveModelTemplateItemSchema.required || []), 'confirmation'],
+})
 
 const saveModelTemplatesInputSchema = jsonSchema<SaveModelTemplatesToolInput>({
   type: 'object',
@@ -44,8 +80,9 @@ const saveModelTemplatesInputSchema = jsonSchema<SaveModelTemplatesToolInput>({
       maxItems: 8,
       items: saveModelTemplateItemSchema,
     },
+    confirmation: toolConfirmationSchema,
   },
-  required: ['models'],
+  required: ['models', 'confirmation'],
 })
 
 function buildSystemPrompt(ctx: AssistantRuntimeContext): string {
@@ -68,6 +105,10 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
       description: '当用户一次要配置多个模型时调用，批量校验并保存到当前 provider。',
       inputSchema: saveModelTemplatesInputSchema,
       execute: async (input): Promise<AssistantToolResult> => {
+        const confirmation = readAssistantToolConfirmation(input.confirmation)
+        if (!confirmation.ok) {
+          return confirmation.error
+        }
         const normalizedItems: Array<{
           modelId: string
           name: string
@@ -186,6 +227,10 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
       description: '当模型模板字段完整且可执行时调用，自动保存到当前 provider。',
       inputSchema: saveModelTemplateInputSchema,
       execute: async (input): Promise<AssistantToolResult> => {
+        const confirmation = readAssistantToolConfirmation(input.confirmation)
+        if (!confirmation.ok) {
+          return confirmation.error
+        }
         const normalizedModelId = input.modelId.trim()
         const normalizedName = input.name.trim() || normalizedModelId
         if (!normalizedModelId) {

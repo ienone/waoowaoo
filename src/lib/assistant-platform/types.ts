@@ -22,17 +22,28 @@ export interface AssistantRuntimeContext {
   resolvedModel: AssistantResolvedModel
 }
 
+export interface AssistantToolIssue {
+  code: string
+  field: string
+  message: string
+}
+
+export interface AssistantToolConfirmationBudget {
+  id: string
+}
+
+export interface AssistantToolConfirmation {
+  confirmed: boolean
+  budget?: AssistantToolConfirmationBudget
+}
+
 export interface AssistantToolResult {
   status: 'saved' | 'invalid' | 'error'
   message: string
   code?: string
   savedModelKey?: string
   savedModelKeys?: string[]
-  issues?: Array<{
-    code: string
-    field: string
-    message: string
-  }>
+  issues?: AssistantToolIssue[]
   draftModel?: {
     modelId: string
     name: string
