@@ -32,6 +32,38 @@ describe('assistant-platform api-config-template skill', () => {
     vi.clearAllMocks()
   })
 
+  it('returns invalid when confirmation is missing', async () => {
+    const tools = apiConfigTemplateSkill.tools?.(buildRuntimeContext())
+    expect(tools).toBeTruthy()
+    const saveTool = tools?.saveModelTemplate
+    expect(saveTool).toBeTruthy()
+    if (!saveTool?.execute) {
+      throw new Error('saveModelTemplate.execute is required for test')
+    }
+
+    const result = await saveTool.execute({
+      modelId: 'veo3.1',
+      name: 'Veo 3.1',
+      type: 'video',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: {
+          method: 'POST',
+          path: '/v2/videos/generations',
+        },
+        response: {
+          taskIdPath: '$.task_id',
+        },
+      },
+    } as unknown as Record<string, unknown>, {} as never)
+
+    expect(result.status).toBe('invalid')
+    expect(result.code).toBe('ASSISTANT_CONFIRMATION_REQUIRED')
+    expect(saveModelTemplateConfigurationMock).not.toHaveBeenCalled()
+  })
+
   it('returns invalid when template fails schema validation', async () => {
     const tools = apiConfigTemplateSkill.tools?.(buildRuntimeContext())
     expect(tools).toBeTruthy()
@@ -56,6 +88,9 @@ describe('assistant-platform api-config-template skill', () => {
         response: {
           taskIdPath: '$.task_id',
         },
+      },
+      confirmation: {
+        confirmed: true,
       },
     }, {} as never)
 
@@ -105,6 +140,9 @@ describe('assistant-platform api-config-template skill', () => {
           doneStates: ['done'],
           failStates: ['failed'],
         },
+      },
+      confirmation: {
+        confirmed: true,
       },
     }, {} as never)
 
@@ -205,6 +243,9 @@ describe('assistant-platform api-config-template skill', () => {
           },
         },
       ],
+      confirmation: {
+        confirmed: true,
+      },
     }, {} as never)
 
     expect(result.status).toBe('saved')
@@ -226,5 +267,60 @@ describe('assistant-platform api-config-template skill', () => {
       type: 'video',
       source: 'ai',
     }))
+  })
+
+  it('returns error when save fails after confirmation', async () => {
+    saveModelTemplateConfigurationMock.mockRejectedValueOnce(
+      new Error('MODEL_TEMPLATE_SAVE_PROVIDER_NOT_FOUND'),
+    )
+    const tools = apiConfigTemplateSkill.tools?.(buildRuntimeContext())
+    expect(tools).toBeTruthy()
+    const saveTool = tools?.saveModelTemplate
+    expect(saveTool).toBeTruthy()
+    if (!saveTool?.execute) {
+      throw new Error('saveModelTemplate.execute is required for test')
+    }
+
+    const result = await saveTool.execute({
+      modelId: 'veo3.1',
+      name: 'Veo 3.1',
+      type: 'video',
+      compatMediaTemplate: {
+        version: 1,
+        mediaType: 'video',
+        mode: 'async',
+        create: {
+          method: 'POST',
+          path: '/v2/videos/generations',
+          contentType: 'application/json',
+          bodyTemplate: {
+            model: '{{model}}',
+            prompt: '{{prompt}}',
+          },
+        },
+        status: {
+          method: 'GET',
+          path: '/v2/videos/generations/{{task_id}}',
+        },
+        response: {
+          taskIdPath: '$.task_id',
+          statusPath: '$.status',
+          outputUrlPath: '$.video_url',
+        },
+        polling: {
+          intervalMs: 3000,
+          timeoutMs: 180000,
+          doneStates: ['done'],
+          failStates: ['failed'],
+        },
+      },
+      confirmation: {
+        confirmed: true,
+      },
+    }, {} as never)
+
+    expect(result.status).toBe('error')
+    expect(result.code).toBe('MODEL_TEMPLATE_SAVE_FAILED')
+    expect(result.message).toBe('MODEL_TEMPLATE_SAVE_PROVIDER_NOT_FOUND')
   })
 })
