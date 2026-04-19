@@ -70,6 +70,12 @@
 - 测试覆盖点：confirmed gate 强制 + 预算元信息字段存在
 - 命令与结果：未重新运行（依赖安装失败导致 typecheck/test 无法执行）
 
+### agent(ui)
+- 状态：done
+- 涉及文件：src/components/assistant/AssistantChatModal.tsx
+- 测试覆盖点：浮层默认 portal 到 document.body
+- 命令与结果：未重新运行（依赖安装失败导致 typecheck/test 无法执行）
+
 ### tests(agent-runtime)
 - 状态：done
 - 涉及文件：tests/unit/assistant-platform/runtime.test.ts
