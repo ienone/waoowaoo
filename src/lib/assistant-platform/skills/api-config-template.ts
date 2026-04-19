@@ -6,6 +6,7 @@ import { saveModelTemplateConfiguration } from '@/lib/user-api/model-template/sa
 import { validateOpenAICompatMediaTemplate } from '@/lib/user-api/model-template/validator'
 import type { AssistantRuntimeContext, AssistantSkillDefinition, AssistantToolResult } from '../types'
 import { AssistantPlatformError } from '../errors'
+import { buildAssistantToolErrorResult } from '../tool-errors'
 import { renderAssistantSystemPrompt } from '../system-prompts'
 
 interface SaveModelTemplateToolInput {
@@ -133,25 +134,33 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
         }> = []
 
         for (const item of normalizedItems) {
-          const saved = await saveModelTemplateConfiguration({
-            userId: ctx.userId,
-            providerId,
-            modelId: item.modelId,
-            name: item.name,
-            type: item.type,
-            template: item.template,
-            source: 'ai',
-          })
-          savedResults.push({
-            savedModelKey: saved.modelKey,
-            draftModel: {
+          try {
+            const saved = await saveModelTemplateConfiguration({
+              userId: ctx.userId,
+              providerId,
               modelId: item.modelId,
               name: item.name,
               type: item.type,
-              provider: providerId,
-              compatMediaTemplate: item.template,
-            },
-          })
+              template: item.template,
+              source: 'ai',
+            })
+            savedResults.push({
+              savedModelKey: saved.modelKey,
+              draftModel: {
+                modelId: item.modelId,
+                name: item.name,
+                type: item.type,
+                provider: providerId,
+                compatMediaTemplate: item.template,
+              },
+            })
+          } catch (error) {
+            return buildAssistantToolErrorResult({
+              error,
+              fallbackMessage: 'model template batch save failed',
+              fallbackCode: 'MODEL_TEMPLATE_BATCH_SAVE_FAILED',
+            })
+          }
         }
 
         const first = savedResults[0]
@@ -213,15 +222,24 @@ function createApiConfigTemplateTools(ctx: AssistantRuntimeContext): ToolSet {
           }
         }
 
-        const saved = await saveModelTemplateConfiguration({
-          userId: ctx.userId,
-          providerId,
-          modelId: normalizedModelId,
-          name: normalizedName,
-          type: input.type,
-          template: validated.template,
-          source: 'ai',
-        })
+        let saved: { modelKey: string }
+        try {
+          saved = await saveModelTemplateConfiguration({
+            userId: ctx.userId,
+            providerId,
+            modelId: normalizedModelId,
+            name: normalizedName,
+            type: input.type,
+            template: validated.template,
+            source: 'ai',
+          })
+        } catch (error) {
+          return buildAssistantToolErrorResult({
+            error,
+            fallbackMessage: 'model template save failed',
+            fallbackCode: 'MODEL_TEMPLATE_SAVE_FAILED',
+          })
+        }
 
         return {
           status: 'saved',
