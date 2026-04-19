@@ -13,6 +13,8 @@ import type {
   AssistantRuntimeContext,
 } from './types'
 
+const ASSISTANT_STEP_CAP = 999
+
 function normalizeAssistantContext(raw: unknown): AssistantContext {
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
   const record = raw as Record<string, unknown>
@@ -30,6 +32,19 @@ async function toModelMessages(messages: UIMessage[]): Promise<Awaited<ReturnTyp
     return rest
   })
   return await convertToModelMessages(withoutIds)
+}
+
+function buildAssistantStopWhen(): ReturnType<typeof stepCountIs> {
+  const stopAtCap = stepCountIs(ASSISTANT_STEP_CAP)
+  return (context) => {
+    if (stopAtCap(context)) {
+      throw new AssistantPlatformError(
+        'ASSISTANT_STEP_CAP_REACHED',
+        `assistant reached max steps (${ASSISTANT_STEP_CAP})`,
+      )
+    }
+    return false
+  }
 }
 
 async function resolveAssistantLanguageModel(input: {
@@ -117,7 +132,7 @@ export async function createAssistantChatResponse(input: {
     system: skill.systemPrompt(runtimeContext),
     messages: await toModelMessages(normalizedMessages),
     ...(tools ? { tools } : {}),
-    stopWhen: stepCountIs(skill.maxSteps ?? 4),
+    stopWhen: buildAssistantStopWhen(),
     temperature: skill.temperature ?? 0.2,
   })
 

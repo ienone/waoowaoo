@@ -245,5 +245,4 @@ export const apiConfigTemplateSkill: AssistantSkillDefinition = {
   systemPrompt: buildSystemPrompt,
   tools: createApiConfigTemplateTools,
   temperature: 0.2,
-  maxSteps: 6,
 }

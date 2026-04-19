@@ -54,5 +54,4 @@ export interface AssistantSkillDefinition {
   systemPrompt: (ctx: AssistantRuntimeContext) => string
   tools?: (ctx: AssistantRuntimeContext) => ToolSet
   temperature?: number
-  maxSteps?: number
 }

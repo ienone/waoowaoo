@@ -46,6 +46,13 @@ function mapAssistantError(error: AssistantPlatformError): ApiError {
     })
   }
 
+  if (error.code === 'ASSISTANT_STEP_CAP_REACHED') {
+    return new ApiError('EXTERNAL_ERROR', {
+      code: error.code,
+      message: error.message,
+    })
+  }
+
   return new ApiError('EXTERNAL_ERROR', {
     code: error.code,
     message: error.message,

@@ -9,5 +9,4 @@ export const tutorialSkill: AssistantSkillDefinition = {
   id: 'tutorial',
   systemPrompt: buildTutorialPrompt,
   temperature: 0.2,
-  maxSteps: 4,
 }
