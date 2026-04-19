@@ -26,6 +26,12 @@
 - npm run typecheck：失败（@types/node/undici 等依赖缺失，tsc 报错）。
 - npm run test:all：失败（cross-env 未安装；guard 仅部分通过）。
 
+已运行命令与结果摘要（变更后复跑）：
+- npm install --no-audit --no-fund：失败（npm error “Exit handler never called!”）。
+- npm run lint:all：失败（eslint 未安装，依赖缺失）。
+- npm run typecheck：失败（@types/node/undici 等依赖缺失，tsc 报错）。
+- npm run test:all：失败（cross-env 未安装；guard 仅部分通过）。
+
 阻塞/缺失文档（需用户确认或补充）：
 - 未找到 AGENTS.md。
 - 其余 docs/agent_* 已补齐基础版本，但仍需 AGENTS.md 作为强约束来源。
