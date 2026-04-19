@@ -126,6 +126,7 @@ describe('assistant-platform runtime', () => {
     expect(stopWhen).toBeTypeOf('function')
     if (!stopWhen) return
     expect(stopWhen({ stepCount: 1 })).toBe(false)
+    expect(stopWhen({ stepCount: 998 })).toBe(false)
     expect(() => stopWhen({ stepCount: 999 })).toThrowError(
       expect.objectContaining({ code: 'ASSISTANT_STEP_CAP_REACHED' }),
     )

@@ -1,16 +1,13 @@
 import type { AssistantToolResult } from './types'
+import { isRecord, readTrimmedString } from './utils'
 
 const DEFAULT_TOOL_ERROR_CODE = 'ASSISTANT_TOOL_ERROR'
-
-function readTrimmedString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
 
 function readErrorMessage(error: unknown): string {
   if (!error || typeof error !== 'object') return ''
   if (error instanceof Error) return readTrimmedString(error.message)
-  const record = error as Record<string, unknown>
-  return readTrimmedString(record.message)
+  if (!isRecord(error)) return ''
+  return readTrimmedString(error.message)
 }
 
 export function buildAssistantToolErrorResult(params: {

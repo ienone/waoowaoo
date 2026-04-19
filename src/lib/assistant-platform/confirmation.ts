@@ -1,12 +1,5 @@
 import type { AssistantToolConfirmation, AssistantToolResult } from './types'
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return !!value && typeof value === 'object' && !Array.isArray(value)
-}
-
-function readTrimmedString(value: unknown): string {
-  return typeof value === 'string' ? value.trim() : ''
-}
+import { isRecord, readTrimmedString } from './utils'
 
 function buildConfirmationError(field: string, message: string): AssistantToolResult {
   return {
