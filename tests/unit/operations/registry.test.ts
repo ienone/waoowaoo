@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { createProjectAgentOperationRegistry } from '@/lib/operations/registry'
+import { ALWAYS_ON_OPERATION_IDS, buildOperationPrimaryModels } from '@/lib/operations/primary-model'
 
 describe('project agent operation registry', () => {
   it('keeps operation ids aligned and scopes defined', () => {
@@ -9,6 +10,20 @@ describe('project agent operation registry', () => {
       expect(operation.scope).toBeTruthy()
       expect(operation.inputSchema).toBeDefined()
       expect(operation.outputSchema).toBeDefined()
+    }
+  })
+
+  it('fails fast when required metadata fields are missing from the primary model', () => {
+    const registry = createProjectAgentOperationRegistry()
+    const primaryModels = buildOperationPrimaryModels(registry)
+    expect(primaryModels.length).toBeGreaterThan(0)
+    for (const operation of primaryModels) {
+      expect(operation.channels.tool === true || operation.channels.tool === false).toBe(true)
+      expect(operation.channels.api === true || operation.channels.api === false).toBe(true)
+      expect(operation.tool.groups.length).toBeGreaterThan(0)
+      expect(operation.tool.tags.length).toBeGreaterThan(0)
+      expect(typeof operation.selection.baseWeight).toBe('number')
+      expect(operation.selection.costHint).toBeTruthy()
     }
   })
 
@@ -58,5 +73,12 @@ describe('project agent operation registry', () => {
     expect(registry.modify_character_image?.channels?.tool ?? true).toBe(true)
     expect(registry.generate_voice_line_audio?.channels?.tool ?? true).toBe(true)
     expect(registry.generate_panel_video?.channels?.tool ?? true).toBe(true)
+  })
+
+  it('contains always-on operation ids in registry', () => {
+    const registry = createProjectAgentOperationRegistry()
+    for (const operationId of ALWAYS_ON_OPERATION_IDS) {
+      expect(registry[operationId]).toBeDefined()
+    }
   })
 })

@@ -276,6 +276,86 @@ describe('selectProjectAgentTools', () => {
     expect(selection.operationIds).toContain('get_billing_summary')
   })
 
+  it('[always-on primitives] keeps confirm/select/safety tools in candidate set', () => {
+    const operations: ProjectAgentOperationRegistry = {
+      ui_confirm: {
+        id: 'ui_confirm',
+        description: 'confirm',
+        scope: 'command',
+        sideEffects: { mode: 'query', risk: 'none' },
+        channels: { tool: true, api: true },
+        tool: {
+          defaultVisibility: 'core',
+          tags: ['ui', 'always-on', 'confirm'],
+          groups: ['ui', 'confirmation'],
+          phases: ['*'],
+          selectable: true,
+          requiresEpisode: false,
+          allowInPlanMode: true,
+          allowInActMode: true,
+        },
+        selection: { baseWeight: 100, costHint: 'low' },
+        inputSchema: z.object({}),
+        outputSchema: z.object({ success: z.boolean() }),
+        execute: async () => ({ success: true }),
+      },
+      ui_single_select: {
+        id: 'ui_single_select',
+        description: 'single',
+        scope: 'command',
+        sideEffects: { mode: 'query', risk: 'none' },
+        channels: { tool: true, api: true },
+        tool: {
+          defaultVisibility: 'core',
+          tags: ['ui', 'always-on', 'single-select'],
+          groups: ['ui', 'selection'],
+          phases: ['*'],
+          selectable: true,
+          requiresEpisode: false,
+          allowInPlanMode: true,
+          allowInActMode: true,
+        },
+        selection: { baseWeight: 100, costHint: 'low' },
+        inputSchema: z.object({}),
+        outputSchema: z.object({ success: z.boolean() }),
+        execute: async () => ({ success: true }),
+      },
+      ui_safety_ack: {
+        id: 'ui_safety_ack',
+        description: 'ack',
+        scope: 'command',
+        sideEffects: { mode: 'query', risk: 'none' },
+        channels: { tool: true, api: true },
+        tool: {
+          defaultVisibility: 'core',
+          tags: ['ui', 'always-on', 'safety'],
+          groups: ['ui', 'safety'],
+          phases: ['*'],
+          selectable: true,
+          requiresEpisode: false,
+          allowInPlanMode: true,
+          allowInActMode: true,
+        },
+        selection: { baseWeight: 100, costHint: 'low' },
+        inputSchema: z.object({}),
+        outputSchema: z.object({ success: z.boolean() }),
+        execute: async () => ({ success: true }),
+      },
+    }
+
+    const selection = selectProjectAgentTools({
+      operations,
+      context: {},
+      phase: buildPhaseSnapshot(),
+      route: buildRoute({ intent: 'query', domains: ['unknown'], toolCategories: ['project-overview'] }),
+      maxTools: 10,
+    })
+
+    expect(selection.operationIds).toContain('ui_confirm')
+    expect(selection.operationIds).toContain('ui_single_select')
+    expect(selection.operationIds).toContain('ui_safety_ack')
+  })
+
   it('[asset voice] keeps high-risk voice act tools and relies on confirmation at execution time', () => {
     const operations: ProjectAgentOperationRegistry = {
       voice_generate: {

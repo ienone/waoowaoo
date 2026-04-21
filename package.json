@@ -35,6 +35,7 @@
     "check:no-provider-guessing": "node scripts/guards/no-provider-guessing.mjs",
     "check:no-hardcoded-model-capabilities": "node scripts/guards/no-hardcoded-model-capabilities.mjs",
     "check:capability-catalog": "node scripts/check-capability-catalog.mjs",
+    "export:operation-registry": "tsx scripts/export-operation-registry.ts",
     "check:pricing-catalog": "node scripts/check-pricing-catalog.mjs",
     "check:model-config-contract": "node scripts/check-model-config-contract.mjs --strict",
     "check:config-center-guards": "npm run check:no-model-key-downgrade && npm run check:no-provider-guessing && npm run check:no-hardcoded-model-capabilities && npm run check:capability-catalog && npm run check:pricing-catalog",

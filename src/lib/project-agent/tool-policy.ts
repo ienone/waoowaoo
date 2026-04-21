@@ -6,10 +6,14 @@ import type {
   OperationRiskLevel,
   OperationScope,
   OperationToolVisibility,
-  ProjectAgentOperationDefinition,
   ProjectAgentOperationId,
   ProjectAgentOperationRegistry,
 } from '@/lib/operations/types'
+import {
+  ALWAYS_ON_OPERATION_IDS,
+  buildOperationPrimaryModels,
+  type OperationPrimaryModel,
+} from '@/lib/operations/primary-model'
 
 export interface ProjectAgentToolSelectionResult {
   operationIds: ProjectAgentOperationId[]
@@ -46,15 +50,6 @@ const CATEGORY_POLICIES: Record<ProjectAgentToolCategory, CategoryPolicy> = {
   debug: { desiredTags: ['debug'], desiredScopes: ['system', 'project', 'task', 'command'], riskBudget: 'allow-high-with-confirm', allowGuardedTools: true },
 }
 
-const ALWAYS_ON_OPERATION_IDS = [
-  'get_project_phase',
-  'get_project_snapshot',
-  'get_project_context',
-  'list_storyboards',
-  'list_runs',
-  'list_tasks',
-] as const
-
 function readBudgetRank(budget: ToolRiskBudget): number {
   if (budget === 'low-only') return 0
   if (budget === 'allow-medium') return 1
@@ -82,12 +77,14 @@ function readVisibilityScore(visibility: OperationToolVisibility): number {
   }
 }
 
-function readOperationMode(operation: ProjectAgentOperationDefinition): OperationMode {
-  return operation.sideEffects?.mode ?? 'query'
+function readOperationMode(operation: OperationPrimaryModel): OperationMode {
+  if (!operation.sideEffects) return 'query'
+  return operation.sideEffects.mode
 }
 
-function readOperationRisk(operation: ProjectAgentOperationDefinition): OperationRiskLevel {
-  return operation.sideEffects?.risk ?? 'none'
+function readOperationRisk(operation: OperationPrimaryModel): OperationRiskLevel {
+  if (!operation.sideEffects) return 'none'
+  return operation.sideEffects.risk
 }
 
 function isRiskAllowed(risk: OperationRiskLevel, budget: ToolRiskBudget): boolean {
@@ -100,26 +97,23 @@ function uniqueSorted(ids: string[]): string[] {
   return Array.from(new Set(ids)).sort((a, b) => a.localeCompare(b))
 }
 
-function readTags(operation: ProjectAgentOperationDefinition): string[] {
-  const tags = operation.tool?.tags
-  if (!Array.isArray(tags)) return []
-  return tags
-    .filter((tag) => typeof tag === 'string' && tag.trim().length > 0)
+function readTags(operation: OperationPrimaryModel): string[] {
+  return operation.tool.tags
+    .filter((tag) => tag.trim().length > 0)
     .map((tag) => tag.trim())
 }
 
-function readVisibility(operation: ProjectAgentOperationDefinition): OperationToolVisibility {
-  const v = operation.tool?.defaultVisibility
+function readVisibility(operation: OperationPrimaryModel): OperationToolVisibility {
+  const v = operation.tool.defaultVisibility
   if (v === 'hidden' || v === 'core' || v === 'scenario' || v === 'extended' || v === 'guarded') return v
-  return 'extended'
+  throw new Error(`PROJECT_AGENT_TOOL_VISIBILITY_INVALID:${operation.id}`)
 }
 
-function requiresEpisode(operation: ProjectAgentOperationDefinition): boolean {
-  if (operation.tool?.requiresEpisode !== undefined) return operation.tool.requiresEpisode
-  return operation.scope === 'episode' || operation.scope === 'storyboard' || operation.scope === 'panel'
+function requiresEpisode(operation: OperationPrimaryModel): boolean {
+  return operation.tool.requiresEpisode
 }
 
-function shouldAllowInIntent(operation: ProjectAgentOperationDefinition, intent: ProjectAgentRouteDecision['intent']): boolean {
+function shouldAllowInIntent(operation: OperationPrimaryModel, intent: ProjectAgentRouteDecision['intent']): boolean {
   const mode = readOperationMode(operation)
   if (intent === 'query') return mode === 'query'
   if (intent === 'plan') return mode === 'query' || mode === 'plan'
@@ -127,25 +121,25 @@ function shouldAllowInIntent(operation: ProjectAgentOperationDefinition, intent:
 }
 
 function shouldAllowInInteractionMode(
-  operation: ProjectAgentOperationDefinition,
+  operation: OperationPrimaryModel,
   interactionMode: ProjectAgentContext['interactionMode'],
 ): boolean {
   if (interactionMode !== 'plan') return true
   const mode = readOperationMode(operation)
   if (mode === 'act') return false
-  if (operation.tool?.allowInPlanMode === false) return false
+  if (operation.tool.allowInPlanMode === false) return false
   return mode === 'query' || mode === 'plan'
 }
 
 function shouldIncludeAsAlwaysOn(params: {
   operationId: string
-  operation: ProjectAgentOperationDefinition
+  operation: OperationPrimaryModel
   context: ProjectAgentContext
 }): boolean {
   if (!ALWAYS_ON_OPERATION_IDS.includes(params.operationId as typeof ALWAYS_ON_OPERATION_IDS[number])) {
     return false
   }
-  const channels = params.operation.channels ?? { tool: true, api: true }
+  const channels = params.operation.channels
   if (!channels.tool) return false
   if (!shouldAllowInInteractionMode(params.operation, params.context.interactionMode)) return false
   if (requiresEpisode(params.operation) && !params.context.episodeId) return false
@@ -175,7 +169,7 @@ function mergeCategoryPolicies(categories: ProjectAgentToolCategory[]): Category
   }
 }
 
-function scoreOperationForCategory(category: ProjectAgentToolCategory, operation: ProjectAgentOperationDefinition, operationId: string): number {
+function scoreOperationForCategory(category: ProjectAgentToolCategory, operation: OperationPrimaryModel, operationId: string): number {
   const tags = readTags(operation)
   const haystack = `${operationId} ${operation.description}`.toLowerCase()
 
@@ -204,7 +198,7 @@ function scoreOperationForCategory(category: ProjectAgentToolCategory, operation
 }
 
 function scoreOperation(params: {
-  operation: ProjectAgentOperationDefinition
+  operation: OperationPrimaryModel
   operationId: string
   policy: CategoryPolicy
   route: ProjectAgentRouteDecision
@@ -218,7 +212,7 @@ function scoreOperation(params: {
   const risk = readOperationRisk(operation)
 
   let score = 0
-  score += operation.selection?.baseWeight ?? 0
+  score += operation.selection.baseWeight
   score += readVisibilityScore(visibility)
 
   if (params.policy.desiredScopes.includes(operation.scope)) score += 18
@@ -261,8 +255,10 @@ export function selectProjectAgentTools(params: {
   const candidates: Array<{ operationId: string; score: number }> = []
   const alwaysOnOperationIds: string[] = []
 
-  for (const [operationId, operation] of Object.entries(params.operations)) {
-    const channels = operation.channels ?? { tool: true, api: true }
+  const primaryModels = buildOperationPrimaryModels(params.operations)
+  for (const operation of primaryModels) {
+    const operationId = operation.id
+    const channels = operation.channels
     if (!channels.tool) continue
     if (shouldIncludeAsAlwaysOn({
       operationId,

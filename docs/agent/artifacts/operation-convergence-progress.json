@@ -1,0 +1,29 @@
+{
+  "updatedAt": "2026-04-21T15:37:48.289Z",
+  "phases": [
+    {
+      "id": "step-0-inventory",
+      "status": "completed"
+    },
+    {
+      "id": "step-1-operation-model",
+      "status": "completed"
+    },
+    {
+      "id": "step-2-facade-split",
+      "status": "completed"
+    },
+    {
+      "id": "step-3-metadata-unification",
+      "status": "completed"
+    },
+    {
+      "id": "step-4-always-on-selector",
+      "status": "completed"
+    },
+    {
+      "id": "step-5-tests-and-export",
+      "status": "completed"
+    }
+  ]
+}

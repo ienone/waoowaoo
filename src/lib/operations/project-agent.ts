@@ -34,6 +34,7 @@ import { createUserBillingOperations } from './user-billing-ops'
 import { createUserApiConfigOperations } from './user-api-config-ops'
 import { createAuthOperations } from './auth-ops'
 import { decorateProjectAgentOperationRegistryWithToolMeta } from './tool-meta'
+import { createAlwaysOnOperations } from './always-on-ops'
 import { createHash, randomUUID } from 'crypto'
 import { ApiError, getRequestId } from '@/lib/api-errors'
 import { submitTask } from '@/lib/task/submitter'
@@ -75,7 +76,32 @@ function withToolPack(
   registry: ProjectAgentOperationRegistry,
   defaults: Parameters<typeof decorateProjectAgentOperationRegistryWithToolMeta>[1],
 ): ProjectAgentOperationRegistry {
-  return decorateProjectAgentOperationRegistryWithToolMeta(registry, defaults)
+  const normalizedRegistry: ProjectAgentOperationRegistry = {}
+  for (const [operationId, operation] of Object.entries(registry)) {
+    const requiresEpisode = operation.scope === 'episode' || operation.scope === 'storyboard' || operation.scope === 'panel'
+    normalizedRegistry[operationId] = {
+      ...operation,
+      channels: {
+        tool: true,
+        api: true,
+        ...(operation.channels ?? {}),
+      },
+      tool: {
+        selectable: true,
+        phases: [],
+        requiresEpisode,
+        allowInPlanMode: true,
+        allowInActMode: true,
+        ...(operation.tool ?? {}),
+      },
+      selection: {
+        baseWeight: 0,
+        costHint: 'low',
+        ...(operation.selection ?? {}),
+      },
+    }
+  }
+  return decorateProjectAgentOperationRegistryWithToolMeta(normalizedRegistry, defaults)
 }
 
 function normalizeString(value: unknown): string {
@@ -249,6 +275,18 @@ const insertStoryboardPanelInputSchema = z.object({
 }).passthrough()
 
 type StoryboardMutationInput = z.infer<typeof storyboardMutationInputSchema>
+
+const storyboardMutationOutputSchema = z.object({
+  success: z.boolean(),
+  panelId: z.string().min(1).optional().nullable(),
+  storyboardId: z.string().min(1).optional(),
+  mutationBatchId: z.string().min(1).optional(),
+  noop: z.boolean().optional(),
+  created: z.boolean().optional(),
+  imageUrl: z.string().optional(),
+  cosKey: z.string().optional(),
+  panel: z.record(z.string(), z.unknown()).optional(),
+}).passthrough()
 
 const modifyCharacterImageInputSchema = z.object({
   confirmed: z.boolean().optional(),
@@ -1798,6 +1836,7 @@ function buildVideoPanelBillingInfoOrThrow(payload: unknown) {
 
 export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegistry {
   return {
+    ...createAlwaysOnOperations(),
     ...withToolPack(createSystemProjectOperations(), {
       tool: { defaultVisibility: 'core', groups: ['project'], tags: ['project', 'system'] },
       selection: { baseWeight: 60, costHint: 'low' },
@@ -2599,7 +2638,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: storyboardMutationInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, input, 'mutate_storyboard'),
     },
     create_storyboard_panel: {
@@ -2621,7 +2660,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: createStoryboardPanelInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'create_panel',
@@ -2645,7 +2684,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: deleteStoryboardPanelInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'delete_panel',
@@ -2669,7 +2708,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: updateStoryboardPanelPromptInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'update_panel_prompt',
@@ -2693,7 +2732,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: updateStoryboardPanelFieldsInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'update_panel_fields',
@@ -2717,7 +2756,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: reorderStoryboardPanelsInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'reorder_panels',
@@ -2741,7 +2780,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'panel',
       inputSchema: selectStoryboardPanelCandidateInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'select_panel_candidate',
@@ -2765,7 +2804,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'panel',
       inputSchema: cancelStoryboardPanelCandidatesInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'cancel_panel_candidates',
@@ -2790,7 +2829,7 @@ export function createProjectAgentOperationRegistry(): ProjectAgentOperationRegi
       },
       scope: 'storyboard',
       inputSchema: insertStoryboardPanelInputSchema,
-      outputSchema: z.unknown(),
+      outputSchema: storyboardMutationOutputSchema,
       execute: async (ctx, input) => executeStoryboardMutationOperation(ctx, {
         ...input,
         action: 'insert_panel',

@@ -2,9 +2,9 @@ import type {
   OperationSideEffects,
   OperationToolVisibility,
   OperationScope,
-  ProjectAgentOperationDefinition,
   ProjectAgentOperationRegistry,
 } from '@/lib/operations/types'
+import { buildOperationPrimaryModels } from '@/lib/operations/primary-model'
 import { localizeSelectableToolDescription } from './copy'
 import { normalizeProjectAgentLocale } from './locale'
 
@@ -34,35 +34,25 @@ function normalizeStringList(values: unknown): string[] {
   return out
 }
 
-function readVisibility(operation: ProjectAgentOperationDefinition): OperationToolVisibility {
-  const v = operation.tool?.defaultVisibility
-  if (v === 'hidden' || v === 'core' || v === 'scenario' || v === 'extended' || v === 'guarded') return v
-  return 'extended'
-}
-
-function isSelectable(operation: ProjectAgentOperationDefinition): boolean {
-  if (!operation.tool) return false
-  return operation.tool.selectable === true
-}
-
 export function buildProjectAgentToolCatalog(
   operations: ProjectAgentOperationRegistry,
   locale?: string,
 ): ProjectAgentToolCatalog {
   const normalizedLocale = normalizeProjectAgentLocale(locale)
   const tools: ProjectAgentToolCatalogItem[] = []
-
-  for (const [operationId, operation] of Object.entries(operations)) {
-    const channels = operation.channels ?? { tool: true, api: true }
+  const primaryModels = buildOperationPrimaryModels(operations)
+  for (const operation of primaryModels) {
+    const operationId = operation.id
+    const channels = operation.channels
     if (!channels.tool) continue
-    if (!isSelectable(operation)) continue
+    if (!operation.tool.selectable) continue
 
     tools.push({
       operationId,
-      description: localizeSelectableToolDescription(operationId, operation.description, normalizedLocale),
-      groups: normalizeStringList(operation.tool?.groups),
-      tags: normalizeStringList(operation.tool?.tags),
-      defaultVisibility: readVisibility(operation),
+      description: localizeSelectableToolDescription(operationId, operation.summary, normalizedLocale),
+      groups: normalizeStringList(operation.tool.groups),
+      tags: normalizeStringList(operation.tool.tags),
+      defaultVisibility: operation.tool.defaultVisibility as OperationToolVisibility,
       scope: operation.scope,
       sideEffects: operation.sideEffects ?? null,
     })

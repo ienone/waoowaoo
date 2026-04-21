@@ -15,7 +15,7 @@ import {
   buildRunLifecycleCanonicalEvent,
   buildWorkflowApprovalCanonicalEvent,
   buildWorkflowPlanCanonicalEvent,
-} from '@/lib/agent/events/workflow-events'
+} from '@/lib/project-agent/events/workflow-events'
 import type {
   ApprovalRequestPartData,
   WorkflowPlanPartData,

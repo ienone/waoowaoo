@@ -1,13 +1,7 @@
 import type {
   OperationChannels,
-  OperationCostHint,
-  OperationMode,
-  OperationRiskLevel,
-  OperationScope,
   OperationSelectionMeta,
-  OperationSideEffects,
   OperationToolMeta,
-  OperationToolVisibility,
   ProjectAgentOperationDefinition,
   ProjectAgentOperationRegistry,
 } from './types'
@@ -29,82 +23,80 @@ function normalizeStringList(values: string[] | undefined): string[] {
   return out
 }
 
-function inferRisk(sideEffects: OperationSideEffects | undefined): OperationRiskLevel {
-  return sideEffects?.risk ?? 'none'
-}
-
-function inferMode(sideEffects: OperationSideEffects | undefined): OperationMode {
-  return sideEffects?.mode ?? 'query'
-}
-
-function inferDefaultVisibility(params: {
-  sideEffects: OperationSideEffects | undefined
-  scope: OperationScope
-}): OperationToolVisibility {
-  const risk = inferRisk(params.sideEffects)
-  const mode = inferMode(params.sideEffects)
-  if (risk === 'high' || risk === 'medium') return 'guarded'
-  if (mode === 'plan') return 'scenario'
-  if (params.scope === 'system' || params.scope === 'user') return 'extended'
-  if (mode === 'act') return 'extended'
-  return 'core'
-}
-
-function inferCostHint(sideEffects: OperationSideEffects | undefined): OperationCostHint {
-  if (sideEffects?.billable) return 'high'
-  const risk = inferRisk(sideEffects)
-  if (risk === 'high') return 'high'
-  if (risk === 'medium') return 'medium'
-  return 'low'
-}
-
-function inferRequiresEpisode(scope: OperationScope): boolean {
-  return scope === 'episode' || scope === 'storyboard' || scope === 'panel'
+function requireDefined<T>(value: T | undefined, errorCode: string): T {
+  if (value === undefined) {
+    throw new Error(errorCode)
+  }
+  return value
 }
 
 function buildMergedChannels(
+  operationId: string,
   operation: ProjectAgentOperationDefinition,
   defaults: OperationToolMetaDefaults,
 ): OperationChannels {
-  const fromOp = operation.channels ?? { tool: true, api: true }
-  const override = defaults.channels ?? {}
+  const fromOp = operation.channels ?? {}
+  const fromDefaults = defaults.channels ?? {}
   return {
-    tool: override.tool ?? fromOp.tool,
-    api: override.api ?? fromOp.api,
+    tool: requireDefined(fromOp.tool ?? fromDefaults.tool, `PROJECT_AGENT_CHANNELS_MISSING:${operationId}:tool`),
+    api: requireDefined(fromOp.api ?? fromDefaults.api, `PROJECT_AGENT_CHANNELS_MISSING:${operationId}:api`),
   }
 }
 
 function buildMergedToolMeta(
+  operationId: string,
   operation: ProjectAgentOperationDefinition,
   defaults: OperationToolMetaDefaults,
 ): OperationToolMeta {
   const fromOp = operation.tool ?? {}
   const fromDefaults = defaults.tool ?? {}
-  const visibility = fromOp.defaultVisibility ?? fromDefaults.defaultVisibility ?? inferDefaultVisibility({
-    sideEffects: operation.sideEffects,
-    scope: operation.scope,
-  })
+  const rawGroups = requireDefined(fromOp.groups ?? fromDefaults.groups, `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:groups`)
+  const rawTags = requireDefined(fromOp.tags ?? fromDefaults.tags, `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:tags`)
+  const groups = normalizeStringList(rawGroups)
+  const tags = normalizeStringList(rawTags)
+  if (groups.length === 0) throw new Error(`PROJECT_AGENT_TOOL_META_MISSING:${operationId}:groups`)
+  if (tags.length === 0) throw new Error(`PROJECT_AGENT_TOOL_META_MISSING:${operationId}:tags`)
+
   return {
-    selectable: fromOp.selectable ?? fromDefaults.selectable ?? visibility !== 'hidden',
-    defaultVisibility: visibility,
-    groups: normalizeStringList(fromOp.groups ?? fromDefaults.groups),
-    tags: normalizeStringList(fromOp.tags ?? fromDefaults.tags),
+    selectable: requireDefined(fromOp.selectable ?? fromDefaults.selectable, `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:selectable`),
+    defaultVisibility: requireDefined(
+      fromOp.defaultVisibility ?? fromDefaults.defaultVisibility,
+      `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:defaultVisibility`,
+    ),
+    groups,
+    tags,
     phases: normalizeStringList(fromOp.phases ?? fromDefaults.phases),
-    requiresEpisode: fromOp.requiresEpisode ?? fromDefaults.requiresEpisode ?? inferRequiresEpisode(operation.scope),
-    allowInPlanMode: fromOp.allowInPlanMode ?? fromDefaults.allowInPlanMode ?? true,
-    allowInActMode: fromOp.allowInActMode ?? fromDefaults.allowInActMode ?? true,
+    requiresEpisode: requireDefined(
+      fromOp.requiresEpisode ?? fromDefaults.requiresEpisode,
+      `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:requiresEpisode`,
+    ),
+    allowInPlanMode: requireDefined(
+      fromOp.allowInPlanMode ?? fromDefaults.allowInPlanMode,
+      `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:allowInPlanMode`,
+    ),
+    allowInActMode: requireDefined(
+      fromOp.allowInActMode ?? fromDefaults.allowInActMode,
+      `PROJECT_AGENT_TOOL_META_MISSING:${operationId}:allowInActMode`,
+    ),
   }
 }
 
 function buildMergedSelectionMeta(
+  operationId: string,
   operation: ProjectAgentOperationDefinition,
   defaults: OperationToolMetaDefaults,
 ): OperationSelectionMeta {
   const fromOp = operation.selection ?? {}
   const fromDefaults = defaults.selection ?? {}
   return {
-    baseWeight: fromOp.baseWeight ?? fromDefaults.baseWeight ?? 0,
-    costHint: fromOp.costHint ?? fromDefaults.costHint ?? inferCostHint(operation.sideEffects),
+    baseWeight: requireDefined(
+      fromOp.baseWeight ?? fromDefaults.baseWeight,
+      `PROJECT_AGENT_SELECTION_META_MISSING:${operationId}:baseWeight`,
+    ),
+    costHint: requireDefined(
+      fromOp.costHint ?? fromDefaults.costHint,
+      `PROJECT_AGENT_SELECTION_META_MISSING:${operationId}:costHint`,
+    ),
   }
 }
 
@@ -116,11 +108,10 @@ export function decorateProjectAgentOperationRegistryWithToolMeta(
   for (const [operationId, operation] of Object.entries(registry)) {
     out[operationId] = {
       ...operation,
-      channels: buildMergedChannels(operation, defaults),
-      tool: buildMergedToolMeta(operation, defaults),
-      selection: buildMergedSelectionMeta(operation, defaults),
+      channels: buildMergedChannels(operationId, operation, defaults),
+      tool: buildMergedToolMeta(operationId, operation, defaults),
+      selection: buildMergedSelectionMeta(operationId, operation, defaults),
     }
   }
   return out
 }
-

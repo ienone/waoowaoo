@@ -1,6 +1,6 @@
 import type { UIMessage } from 'ai'
 import type { CommandExecutionResult } from '@/lib/command-center/types'
-import type { WorkflowCanonicalEvent } from '@/lib/agent/events/workflow-events'
+import type { WorkflowCanonicalEvent } from '@/lib/project-agent/events/workflow-events'
 import type { ProjectContextSnapshot } from '@/lib/project-context/types'
 import type { ProjectPhase, ProjectPhaseSnapshot } from './project-phase'
 import type { WorkflowPackageId, WorkflowSkillId } from '@/lib/skill-system/types'
